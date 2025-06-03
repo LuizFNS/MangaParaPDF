@@ -21,7 +21,6 @@ def buscar_manga_por_nome(title, filtros=None):
     }
 
     r = requests.get(f"{BASE_URL}/manga", params=filters)
-    print(f"{BASE_URL}/manga {filters}")
 
     manga = r.json()["data"]
     with open("mangas.json", "w", encoding="utf-8") as f:
@@ -149,15 +148,20 @@ def buscar_capitulos_por_id(id):
 
 
 def buscar_paginas(id):
-
     url = f"https://api.mangadex.org/at-home/server/{id}"
-
     response = requests.get(url)
     data = response.json()
+    print(data)  # útil pra debug
+
+    if "baseUrl" not in data:
+        print(f"Erro ao buscar páginas: {data.get('errors', 'Resposta inesperada')}")
+        return None  # ou [], dependendo do que espera na função que chama
+
     BASE_URL = data["baseUrl"]
     manga_hash = data["chapter"]["hash"]
     manga_pages = data["chapter"]["dataSaver"]
     url_imagens = []
+
     for i, pagina in enumerate(manga_pages):
         url = f"{BASE_URL}/data-saver/{manga_hash}/{pagina}"
         url_imagens.append(

@@ -96,6 +96,7 @@ class MangaApp:
             relief="flat",
         )
         self.lista_resultados.grid(row=3, column=0, columnspan=3, padx=10)
+        self.lista_resultados.bind("<Double-1>", self.on_double_click)
 
         self.btn_baixar = tk.Button(
             root,
@@ -133,12 +134,14 @@ class MangaApp:
 
         try:
             self.mangas = buscar_manga_por_nome(titulo, filtros=self.filtros)
-            print(self.filtros)
             for i, manga in enumerate(self.mangas):
                 nome = manga.get("titulo", "Sem nome")
                 self.lista_resultados.insert(tk.END, f"[{i+1}] {nome}")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao buscar mangá: {e}")
+
+    def on_double_click(self, event):
+        self.abrir_infos()
 
     def abrir_infos(self):
         ttk.Style().theme_use("clam")  # Garante que o tema esteja configurado
@@ -166,7 +169,6 @@ class MangaApp:
             "Criador": manga.get("criador", "Desconhecido"),
             "Sinopse": manga.get("sinopse", "Desconhecido"),
             "Capa": manga.get("capa", "Desconhecido"),
-            "Links": manga.get("links", "Desconhecido"),
         }
         # Paleta dark mode
         dark_bg = "#1E1E2F"  # fundo geral
@@ -245,7 +247,7 @@ class MangaApp:
         )
         separator1.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=1)
 
-        # Campos principais (exclui Sinopse, Capa e Links para tratar separado)
+        # Campos principais (exclui Sinopse, Capa para tratar separado)
         campos_principais = [
             "ID",
             "Capítulos",
@@ -342,7 +344,7 @@ class MangaApp:
                 )
 
             except Exception as e:
-                print(f"Erro ao carregar imagem da capa: {e}")
+                messagebox.showerror(f"Erro ao carregar imagem da capa: {e}")
         ttk.Label(scroll_frame, text="Capa:", style="DarkKey.TLabel").grid(
             row=capa_idx, column=0, sticky="nw", padx=15, pady=6
         )
@@ -359,29 +361,6 @@ class MangaApp:
         capa_text.insert("1.0", infos["Capa"])
         capa_text.config(state="disabled")
         capa_text.grid(row=capa_idx, column=1, sticky="nw", padx=5, pady=5)
-
-        # Links
-        links_idx = capa_idx + 1
-        ttk.Separator(scroll_frame, orient="horizontal", style="Dark.TSeparator").grid(
-            row=links_idx - 1, column=0, columnspan=2, sticky="ew", padx=10, pady=1
-        )
-
-        ttk.Label(scroll_frame, text="Links:", style="DarkKey.TLabel").grid(
-            row=links_idx, column=0, sticky="nw", padx=15, pady=6
-        )
-        links_text = tk.Text(
-            scroll_frame,
-            width=30,
-            height=4,
-            wrap="word",
-            borderwidth=0,
-            background=dark_bg,  # Ou a variável/cor que você tá usando no fundo.
-            foreground="#DDDDDD",
-            font=valor_font,
-        )
-        links_text.insert("1.0", infos["Links"])
-        links_text.config(state="disabled")
-        links_text.grid(row=links_idx, column=1, sticky="nw", padx=5, pady=6)
 
         # Frame fixo para botões, fora do canvas e do scroll_frame
         fixed_frame = ttk.Frame(janela, style="Dark.TFrame")
@@ -606,7 +585,7 @@ class MangaApp:
                                 capitulos.append(cap)
                                 capitulos_adicionados.add(cap["capitulo"])
                     except ValueError:
-                        print(f"Capítulo ignorado: {cap_num}")
+                        messagebox.showerror(f"Capítulo ignorado: {cap_num}")
 
             for capitulo in capitulos:
                 capitulo_nome = str(capitulo["capitulo"])
@@ -614,6 +593,11 @@ class MangaApp:
                 cap_path.mkdir(parents=True, exist_ok=True)
 
                 paginas = buscar_paginas(capitulo["id"])
+                if paginas is None:
+                    messagebox.showerror(
+                        "Não foi possível baixar as páginas deste capítulo"
+                    )
+                    return
 
                 self.progress["maximum"] = len(paginas)
                 self.progress["value"] = 0

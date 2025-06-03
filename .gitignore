@@ -40,3 +40,7 @@ junitxml/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+
+#arquivos de log
+capitulos.txt
+mangas.json
