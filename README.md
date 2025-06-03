@@ -44,7 +44,7 @@ O sistema permite:
 1. Clone o repositório:
 
 ```bash
-git clone <seu-repositorio>
+git clone https://github.com/LuizFNS/MangaParaPDF
 ```
 
 2. Instale as dependências:
