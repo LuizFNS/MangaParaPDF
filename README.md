@@ -77,10 +77,10 @@ pip install pillow requests beautifulsoup4 tqdm
 
 * Digite o nome do mangá na barra de pesquisa.
 * Clique em **Buscar** (MangaDex) ou **Buscar \[ML]** (MangaLivre).
-* Visualize as informações com **Info Manga**.
+* Visualize as informações com **Info Manga** para baixar via Mangadex.
 * Baixe atráves do **Baixar** dentro de **Info Manga**
   ou
-* Baixe capítulos com **Baixar \[ML]**.
+* Baixe capítulos com **Baixar \[ML]** para baixar via MangaLivre.
 
 ## Capturas de Tela
 
