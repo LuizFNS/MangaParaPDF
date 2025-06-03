@@ -151,7 +151,6 @@ def buscar_paginas(id):
     url = f"https://api.mangadex.org/at-home/server/{id}"
     response = requests.get(url)
     data = response.json()
-    print(data)  # útil pra debug
 
     if "baseUrl" not in data:
         print(f"Erro ao buscar páginas: {data.get('errors', 'Resposta inesperada')}")

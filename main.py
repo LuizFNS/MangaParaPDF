@@ -61,6 +61,8 @@ class MangaApp:
         )
         self.entry_pesquisa.grid(row=1, column=0, padx=10, sticky="ew", columnspan=3)
 
+        self.entry_pesquisa.bind("<Return>", self.buscar_manga_event)
+
         self.btn_buscar = tk.Button(
             root, text="Buscar", command=self.buscar_manga, bg=button_bg, fg=text_color
         )
@@ -127,6 +129,12 @@ class MangaApp:
         )
         self.progress.grid(row=5, column=0, columnspan=4, padx=10, pady=10, sticky="ew")
 
+    def on_double_click(self, event):
+        self.abrir_infos()
+
+    def buscar_manga_event(self, event):
+        self.buscar_manga()
+
     def buscar_manga(self):
         self.progress["value"] = 0
         titulo = self.entry_pesquisa.get()
@@ -140,10 +148,19 @@ class MangaApp:
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao buscar mangá: {e}")
 
-    def on_double_click(self, event):
-        self.abrir_infos()
-
     def abrir_infos(self):
+
+        sel = self.lista_resultados.curselection()
+        if not sel:
+            messagebox.showwarning(
+                "Aviso", "Selecione um mangá para ver as informações."
+            )
+            return
+        index = sel[0]
+        manga = self.mangas[index]
+
+        # Salva o mangá aberto para usar depois
+        self.manga_info = manga
         ttk.Style().theme_use("clam")  # Garante que o tema esteja configurado
         sel = self.lista_resultados.curselection()
 
@@ -509,16 +526,17 @@ class MangaApp:
                 self.progress["maximum"] = len(imagens)
                 self.progress["value"] = 0
 
-                def baixar_pagina(pagina):
+                def baixar_pagina(args):
+                    idx, pagina = args
                     url = pagina["src"]
-                    nome_arquivo = cap_path / f"Pagina {imagens.index(pagina) + 1}.jpg"
+                    nome_arquivo = cap_path / f"Pagina {idx + 1}.jpg"
                     salvar_imagem(url, nome_arquivo)
                     self.progress["value"] += 1
                     self.root.update_idletasks()
                     return nome_arquivo
 
                 with ThreadPoolExecutor(max_workers=10) as executor:
-                    arquivos = list(executor.map(baixar_pagina, imagens))
+                    arquivos = list(executor.map(baixar_pagina, enumerate(imagens)))
 
                 try:
                     nome_pdf = f"Capitulo {cap_nome} - {slug}"
@@ -531,13 +549,14 @@ class MangaApp:
         threading.Thread(target=baixar).start()
 
     def baixar_manga(self):
-        sel = self.lista_resultados.curselection()
-        if not sel:
-            messagebox.showwarning("Aviso", "Selecione um mangá para baixar.")
+        manga = getattr(self, "manga_info", None)
+        if not manga:
+            messagebox.showwarning(
+                "Aviso",
+                "Nenhum mangá aberto para baixar. Abra as informações do mangá antes.",
+            )
             return
 
-        index = sel[0]
-        manga = self.mangas[index]
         id_manga = manga["id"]
         titulo = manga["titulo"]
         caminho_base = Path("downloads") / titulo
@@ -585,7 +604,7 @@ class MangaApp:
                                 capitulos.append(cap)
                                 capitulos_adicionados.add(cap["capitulo"])
                     except ValueError:
-                        messagebox.showerror(f"Capítulo ignorado: {cap_num}")
+                        messagebox.showerror("Capítulo ignorado", f"{cap_num}")
 
             for capitulo in capitulos:
                 capitulo_nome = str(capitulo["capitulo"])
@@ -594,10 +613,10 @@ class MangaApp:
 
                 paginas = buscar_paginas(capitulo["id"])
                 if paginas is None:
-                    messagebox.showerror(
-                        "Não foi possível baixar as páginas deste capítulo"
+                    messagebox.showwarning(
+                        "Aviso", "Não foi possível baixar as páginas deste capítulo"
                     )
-                    return
+                    continue
 
                 self.progress["maximum"] = len(paginas)
                 self.progress["value"] = 0
@@ -614,7 +633,9 @@ class MangaApp:
 
                 try:
                     converter_para_pdf(
-                        cap_path, f"Capítulo {capitulo_nome} - {cap['manga']}", arquivos
+                        cap_path,
+                        f"Capítulo {capitulo_nome} - {capitulo['manga']}",
+                        arquivos,
                     )
                     self.progress["value"] = 0
                 except Exception as e:
