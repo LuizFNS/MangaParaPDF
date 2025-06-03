@@ -88,7 +88,9 @@ pip install pillow requests beautifulsoup4 tqdm
 * Informações detalhadas do mangá.
 * Visualização da capa.
 * Barra de progresso.
+  
 ![image](https://github.com/user-attachments/assets/ed69a962-42fd-48fb-877d-21de4493b0a6)
+
 ![image](https://github.com/user-attachments/assets/261653f3-7293-462d-82a7-40a091b60a65)
 
 
