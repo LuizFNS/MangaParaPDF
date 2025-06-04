@@ -44,3 +44,6 @@ junitxml/
 #arquivos de log
 capitulos.txt
 mangas.json
+
+downloads/
+.downloads/

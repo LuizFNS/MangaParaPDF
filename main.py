@@ -149,7 +149,6 @@ class MangaApp:
             messagebox.showerror("Erro", f"Erro ao buscar mangá: {e}")
 
     def abrir_infos(self):
-
         sel = self.lista_resultados.curselection()
         if not sel:
             messagebox.showwarning(
@@ -158,24 +157,22 @@ class MangaApp:
             return
         index = sel[0]
         manga = self.mangas[index]
-
-        # Salva o mangá aberto para usar depois
         self.manga_info = manga
-        ttk.Style().theme_use("clam")  # Garante que o tema esteja configurado
-        sel = self.lista_resultados.curselection()
 
-        if not sel:
-            messagebox.showwarning(
-                "Aviso", "Selecione um mangá para ver as informações."
-            )
-            return
-        index = sel[0]
-        manga = self.mangas[index]
+        # Busca a quantidade total de capítulos atualizada
+        id_manga = manga.get("id", None)
+        total_capitulos = "Desconhecido"
+        if id_manga:
+            try:
+                capitulos = buscar_capitulos_por_id(id_manga)
+                total_capitulos = len(capitulos)
+            except Exception as e:
+                print(f"Erro ao buscar capítulos(pt-br): {e}")
 
         infos = {
             "Título": manga.get("titulo", "Sem título"),
             "ID": manga.get("id", "Desconhecido"),
-            "Capítulos": manga.get("capitulos", "Desconhecido"),
+            "Capítulos": f"{manga.get('capitulos', 'Desconhecido')} (Total: {total_capitulos})",
             "Status": manga.get("status", "Desconhecido"),
             "Demografia": manga.get("demografia", "Desconhecido"),
             "Idioma": manga.get("idioma", "Desconhecido"),
@@ -245,8 +242,6 @@ class MangaApp:
         style.configure("Dark.TSeparator", background=separator_color)
 
         # Estilos de fonte
-        titulo_font = ("Segoe UI", 14, "bold")
-        label_font = ("Segoe UI", 11, "bold")
         valor_font = ("Segoe UI", 11)
         sinopse_font = ("Segoe UI", 10, "italic")
 
@@ -335,53 +330,31 @@ class MangaApp:
         sinopse_text.config(state="disabled")
         sinopse_text.grid(row=sinopse_idx, column=1, sticky="nw", padx=10, pady=(0, 15))
 
+        # Frame fixo para botões, fora do canvas e do scroll_frame
+
         # Capa
-        capa_idx = sinopse_idx + 1
-        ttk.Separator(scroll_frame, orient="horizontal", style="Dark.TSeparator").grid(
-            row=capa_idx - 1, column=0, columnspan=2, sticky="ew", padx=10, pady=1
-        )
+
+        fixed_frame = ttk.Frame(janela, style="Dark.TFrame")
+        fixed_frame.pack(fill="x", side="bottom", padx=5, pady=10)
+
         capa_url = get_manga_cover(manga["id"], infos["Capa"])
 
         if capa_url:
             try:
                 response = requests.get(capa_url)
                 imagem = Image.open(BytesIO(response.content))
-                imagem = imagem.resize((200, 300))  # Ajusta o tamanho conforme desejar
-
+                imagem = imagem.resize((100, 150))  # Ajusta o tamanho conforme desejar
                 imagem_tk = ImageTk.PhotoImage(imagem)
-
                 # Mantém a referência para não ser coletado
                 if not hasattr(self, "imagens_refs"):
                     self.imagens_refs = []
                 self.imagens_refs.append(imagem_tk)
 
-                capa_label = tk.Label(scroll_frame, image=imagem_tk, bg=dark_bg)
-                capa_label.grid(
-                    row=capa_idx + 1, column=0, columnspan=2, pady=30, sticky="nsew"
-                )
+                capa_label = tk.Label(fixed_frame, image=imagem_tk, bg=dark_bg)
+                capa_label.pack(side="top", expand=True, padx=5, pady=10)
 
             except Exception as e:
                 messagebox.showerror(f"Erro ao carregar imagem da capa: {e}")
-        ttk.Label(scroll_frame, text="Capa:", style="DarkKey.TLabel").grid(
-            row=capa_idx, column=0, sticky="nw", padx=15, pady=6
-        )
-        capa_text = tk.Text(
-            scroll_frame,
-            width=30,
-            height=2,
-            wrap="word",
-            borderwidth=0,
-            background=dark_bg,
-            foreground="#DDDDDD",
-            font=valor_font,
-        )
-        capa_text.insert("1.0", infos["Capa"])
-        capa_text.config(state="disabled")
-        capa_text.grid(row=capa_idx, column=1, sticky="nw", padx=5, pady=5)
-
-        # Frame fixo para botões, fora do canvas e do scroll_frame
-        fixed_frame = ttk.Frame(janela, style="Dark.TFrame")
-        fixed_frame.pack(fill="x", side="bottom", padx=5, pady=10)
 
         btn_baixar = ttk.Button(fixed_frame, text="Baixar", command=self.baixar_manga)
         btn_baixar.pack(side="bottom", expand=True, padx=5, pady=10)
@@ -562,88 +535,123 @@ class MangaApp:
         caminho_base = Path("downloads") / titulo
         caminho_base.mkdir(parents=True, exist_ok=True)
 
-        capitulos_disponiveis = buscar_capitulos_por_id(id_manga)
-        capitulos_numerados = [
-            cap for cap in capitulos_disponiveis if cap.get("capitulo")
-        ]
-        total_caps = len(capitulos_numerados)
+        janela_download = tk.Toplevel(self.root)
+        janela_download.title("Configurar Download")
+        janela_download.geometry("300x200")
+        janela_download.configure(bg="#1E1E2F")
+        janela_download.resizable(False, False)
 
-        entrada = simpledialog.askfloat(
-            "Capítulo inicial", "Digite o número do primeiro capítulo:"
+        ttk.Label(
+            janela_download,
+            text="Capítulo Inicial:",
+            foreground="#E0E0F0",
+            background="#1E1E2F",
+        ).pack(pady=(10, 0))
+        entrada_var = tk.StringVar()
+        entrada_entry = ttk.Entry(janela_download, textvariable=entrada_var)
+        entrada_entry.pack()
+
+        ttk.Label(
+            janela_download,
+            text="Capítulo Final:",
+            foreground="#E0E0F0",
+            background="#1E1E2F",
+        ).pack(pady=(10, 0))
+        saida_var = tk.StringVar()
+        saida_entry = ttk.Entry(janela_download, textvariable=saida_var)
+        saida_entry.pack()
+
+        converter_pdf_var = tk.BooleanVar(value=True)
+        converter_checkbox = ttk.Checkbutton(
+            janela_download, text="Converter PDF", variable=converter_pdf_var
         )
-        saida = simpledialog.askfloat(
-            "Capítulo final",
-            f"Digite o número do último capítulo (total disponível: {total_caps}):",
-        )
+        converter_checkbox.pack(pady=10)
 
-        if entrada is None or saida is None:
-            messagebox.showwarning(
-                "Aviso", "Você precisa informar o intervalo de capítulos."
-            )
-            return
+        def iniciar_download():
+            try:
+                entrada = float(entrada_var.get())
+                saida = float(saida_var.get())
+            except ValueError:
+                messagebox.showerror(
+                    "Erro", "Informe números válidos para os capítulos."
+                )
+                return
 
-        def baixar():
-            capitulos = []
-            sem_numero_contador = 1
-            capitulos_adicionados = set()
+            converter_pdf = converter_pdf_var.get()
+            janela_download.destroy()
 
-            for cap in buscar_capitulos_por_id(id_manga):
-                cap_num = cap["capitulo"]
-                if cap_num is None:
-                    cap["capitulo"] = f"Sem número {sem_numero_contador}"
-                    if cap["capitulo"] not in capitulos_adicionados:
-                        sem_numero_contador += 1
-                        capitulos.append(cap)
-                        capitulos_adicionados.add(cap["capitulo"])
-                else:
-                    try:
-                        cap_num_float = float(cap_num)
-                        if entrada <= cap_num_float <= saida:
-                            cap["capitulo"] = str(cap_num_float)
-                            if cap["capitulo"] not in capitulos_adicionados:
-                                capitulos.append(cap)
-                                capitulos_adicionados.add(cap["capitulo"])
-                    except ValueError:
-                        messagebox.showerror("Capítulo ignorado", f"{cap_num}")
+            def baixar():
+                capitulos = []
+                sem_numero_contador = 1
+                capitulos_adicionados = set()
 
-            for capitulo in capitulos:
-                capitulo_nome = str(capitulo["capitulo"])
-                cap_path = caminho_base / f"Capitulo {capitulo_nome}"
-                cap_path.mkdir(parents=True, exist_ok=True)
+                for cap in buscar_capitulos_por_id(id_manga):
+                    cap_num = cap["capitulo"]
+                    if cap_num is None:
+                        cap["capitulo"] = f"Sem número {sem_numero_contador}"
+                        if cap["capitulo"] not in capitulos_adicionados:
+                            sem_numero_contador += 1
+                            capitulos.append(cap)
+                            capitulos_adicionados.add(cap["capitulo"])
+                    else:
+                        try:
+                            cap_num_float = float(cap_num)
+                            if entrada <= cap_num_float <= saida:
+                                cap["capitulo"] = str(cap_num_float)
+                                if cap["capitulo"] not in capitulos_adicionados:
+                                    capitulos.append(cap)
+                                    capitulos_adicionados.add(cap["capitulo"])
+                        except ValueError:
+                            messagebox.showerror("Capítulo ignorado", f"{cap_num}")
 
-                paginas = buscar_paginas(capitulo["id"])
-                if paginas is None:
-                    messagebox.showwarning(
-                        "Aviso", "Não foi possível baixar as páginas deste capítulo"
-                    )
-                    continue
+                for capitulo in capitulos:
+                    capitulo_nome = str(capitulo["capitulo"])
+                    cap_path = caminho_base / f"Capitulo {capitulo_nome}"
+                    cap_path.mkdir(parents=True, exist_ok=True)
 
-                self.progress["maximum"] = len(paginas)
-                self.progress["value"] = 0
+                    paginas = buscar_paginas(capitulo["id"])
+                    if paginas is None:
+                        messagebox.showwarning(
+                            "Aviso",
+                            f"Não foi possível baixar as páginas do capítulo {capitulo_nome}",
+                        )
+                        continue
 
-                def baixar_pagina_com_progresso(pagina):
-                    nome_arquivo = cap_path / f"Pagina {pagina['pagina'] + 1}.jpg"
-                    salvar_imagem(pagina["url"], nome_arquivo)
-                    self.progress["value"] += 1
-                    self.root.update_idletasks()
-                    return nome_arquivo
-
-                with ThreadPoolExecutor(max_workers=10) as executor:
-                    arquivos = list(executor.map(baixar_pagina_com_progresso, paginas))
-
-                try:
-                    converter_para_pdf(
-                        cap_path,
-                        f"Capítulo {capitulo_nome} - {capitulo['manga']}",
-                        arquivos,
-                    )
+                    self.progress["maximum"] = len(paginas)
                     self.progress["value"] = 0
-                except Exception as e:
-                    messagebox.showerror("Erro", f"Erro ao converter para PDF: {e}")
 
-            messagebox.showinfo("Concluído", "Download finalizado.")
+                    def baixar_pagina_com_progresso(pagina):
+                        nome_arquivo = cap_path / f"Pagina {pagina['pagina'] + 1}.jpg"
+                        salvar_imagem(pagina["url"], nome_arquivo)
+                        self.progress["value"] += 1
+                        self.root.update_idletasks()
+                        return nome_arquivo
 
-        threading.Thread(target=baixar).start()
+                    with ThreadPoolExecutor(max_workers=10) as executor:
+                        arquivos = list(
+                            executor.map(baixar_pagina_com_progresso, paginas)
+                        )
+
+                    if converter_pdf:
+                        try:
+                            converter_para_pdf(
+                                cap_path,
+                                f"Capítulo {capitulo_nome} - {capitulo['manga']}",
+                                arquivos,
+                            )
+                            self.progress["value"] = 0
+                        except Exception as e:
+                            messagebox.showerror(
+                                "Erro", f"Erro ao converter para PDF: {e}"
+                            )
+
+                messagebox.showinfo("Concluído", "Download finalizado.")
+
+            threading.Thread(target=baixar).start()
+
+        ttk.Button(
+            janela_download, text="Iniciar Download", command=iniciar_download
+        ).pack(pady=15)
 
 
 if __name__ == "__main__":
