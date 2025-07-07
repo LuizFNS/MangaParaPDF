@@ -469,57 +469,101 @@ class MangaApp:
         caminho_base.mkdir(parents=True, exist_ok=True)
 
         total_caps = ml.quantidade_capitulos(slug, ml.site_url)
-        entrada = simpledialog.askfloat(
-            "Capítulo inicial", "Digite o número do primeiro capítulo:"
+
+        janela_download = tk.Toplevel(self.root)
+        janela_download.title("Configurar Download")
+        janela_download.geometry("300x250")
+        janela_download.configure(bg="#1E1E2F")
+        janela_download.resizable(False, False)
+
+        ttk.Label(
+            janela_download,
+            text="Capítulo Inicial:",
+            foreground="#E0E0F0",
+            background="#1E1E2F",
+        ).pack(pady=(10, 0))
+        entrada_var = tk.StringVar()
+        entrada_entry = ttk.Entry(janela_download, textvariable=entrada_var)
+        entrada_entry.pack()
+
+        ttk.Label(
+            janela_download,
+            text=f"Capítulo Final (total: {total_caps}):",
+            foreground="#E0E0F0",
+            background="#1E1E2F",
+        ).pack(pady=(10, 0))
+        saida_var = tk.StringVar()
+        saida_entry = ttk.Entry(janela_download, textvariable=saida_var)
+        saida_entry.pack()
+
+        converter_pdf_var = tk.BooleanVar(value=True)
+        converter_checkbox = ttk.Checkbutton(
+            janela_download, text="Converter PDF", variable=converter_pdf_var
         )
-        saida = simpledialog.askfloat(
-            "Capítulo final",
-            f"Digite o número do último capítulo (total disponível: {total_caps}):",
-        )
+        converter_checkbox.pack(pady=10)
 
-        if entrada is None or saida is None:
-            messagebox.showwarning(
-                "Aviso", "Você precisa informar o intervalo de capítulos."
-            )
-            return
+        def iniciar_download():
+            try:
+                entrada = float(entrada_var.get())
+                saida = float(saida_var.get())
+            except ValueError:
+                messagebox.showerror(
+                    "Erro", "Por favor, insira valores numéricos válidos."
+                )
+                return
 
-        def baixar():
-            capitulos = ml.buscar_capitulo_2(
-                slug, capitulo_inicial=entrada, capitulo_final=saida
-            )
-            for capitulo in capitulos:
-                cap_nome = capitulo["capitulo"]
-                cap_path = caminho_base / f"Capitulo {cap_nome}"
-                cap_path.mkdir(parents=True, exist_ok=True)
+            if entrada > saida:
+                messagebox.showwarning(
+                    "Aviso", "O capítulo inicial não pode ser maior que o final."
+                )
+                return
 
-                response = requests.get(capitulo["url"])
-                soup = BeautifulSoup(response.text, "html.parser")
-                imagens = soup.find_all(ml.tag, class_=ml.class_name)
+            janela_download.destroy()
 
-                self.progress["maximum"] = len(imagens)
-                self.progress["value"] = 0
+            def baixar():
+                capitulos = ml.buscar_capitulo_2(
+                    slug, capitulo_inicial=entrada, capitulo_final=saida
+                )
+                for capitulo in capitulos:
+                    cap_nome = capitulo["capitulo"]
+                    cap_path = caminho_base / f"Capitulo {cap_nome}"
+                    cap_path.mkdir(parents=True, exist_ok=True)
 
-                def baixar_pagina(args):
-                    idx, pagina = args
-                    url = pagina["src"]
-                    nome_arquivo = cap_path / f"Pagina {idx + 1}.jpg"
-                    salvar_imagem(url, nome_arquivo)
-                    self.progress["value"] += 1
-                    self.root.update_idletasks()
-                    return nome_arquivo
+                    response = requests.get(capitulo["url"])
+                    soup = BeautifulSoup(response.text, "html.parser")
+                    imagens = soup.find_all(ml.tag, class_=ml.class_name)
 
-                with ThreadPoolExecutor(max_workers=10) as executor:
-                    arquivos = list(executor.map(baixar_pagina, enumerate(imagens)))
+                    self.progress["maximum"] = len(imagens)
+                    self.progress["value"] = 0
 
-                try:
-                    nome_pdf = f"Capitulo {cap_nome} - {slug}"
-                    converter_para_pdf(cap_path, nome_pdf, arquivos)
-                except Exception as e:
-                    messagebox.showerror("Erro", f"Erro ao converter para PDF: {e}")
+                    def baixar_pagina(args):
+                        idx, pagina = args
+                        url = pagina["src"]
+                        nome_arquivo = cap_path / f"Pagina {idx + 1}.jpg"
+                        salvar_imagem(url, nome_arquivo)
+                        self.progress["value"] += 1
+                        self.root.update_idletasks()
+                        return nome_arquivo
 
-            messagebox.showinfo("Concluído", "Download finalizado.")
+                    with ThreadPoolExecutor(max_workers=10) as executor:
+                        arquivos = list(executor.map(baixar_pagina, enumerate(imagens)))
 
-        threading.Thread(target=baixar).start()
+                    if converter_pdf_var.get():
+                        try:
+                            nome_pdf = f"Capitulo {cap_nome} - {slug}"
+                            converter_para_pdf(cap_path, nome_pdf, arquivos)
+                        except Exception as e:
+                            messagebox.showerror(
+                                "Erro", f"Erro ao converter para PDF: {e}"
+                            )
+
+                messagebox.showinfo("Concluído", "Download finalizado.")
+
+            threading.Thread(target=baixar).start()
+
+        ttk.Button(
+            janela_download, text="Iniciar Download", command=iniciar_download
+        ).pack(pady=(10, 0))
 
     def baixar_manga(self):
         manga = getattr(self, "manga_info", None)

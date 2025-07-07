@@ -45,5 +45,6 @@ junitxml/
 capitulos.txt
 mangas.json
 
+# Arquivos de download
 downloads/
 .downloads/
